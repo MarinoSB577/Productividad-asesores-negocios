@@ -1,0 +1,42 @@
+# ── Entorno virtual ───────────────────────────────────────────
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# ── DATOS — nunca versionar datos reales ─────────────────────
+data/raw/
+data/interim/
+data/processed/
+*.duckdb
+
+# ── MLflow ────────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+
+# ── Credenciales ──────────────────────────────────────────────
+.env
+
+# ── Jupyter ───────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── VS Code ───────────────────────────────────────────────────
+.vscode/
+
+# ── Archivos de trabajo previo (no pertenecen al repo) ────────
+PROMPT_REVISIÓN_TESIS_FASE1Y2.txt
+PROMPT_REVISIÓN_TESIS_FASE3Y4.txt
+Tesis_MSB_20200614.pdf
+
+# ── Windows ───────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+*~
+
+# ── Distribución ──────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
