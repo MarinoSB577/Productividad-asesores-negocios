@@ -6,10 +6,12 @@ __pycache__/
 *.pyd
 .Python
 
-# ── DATOS — nunca versionar datos reales ─────────────────────
+# Datos — NUNCA versionar datos reales
 data/raw/
 data/interim/
-data/processed/
+data/processed/*
+!data/processed/*.joblib
+!data/processed/feature_names.csv
 *.duckdb
 
 # ── MLflow ────────────────────────────────────────────────────
