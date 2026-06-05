@@ -2,154 +2,162 @@
 
 **Institución:** Microfinanciera mexicana (datos anonimizados)
 **Período de análisis:** Junio 2016 – Enero 2019
-**Modelo:** LightGBM — Clasificación multiclase (4 cuartiles de riesgo)
-**Versión:** 1.0 | Fecha: Junio 2026
+**Modelo:** LightGBM — Clasificación en 3 niveles de riesgo
+**Versión:** 2.0 | Junio 2026
 
 ---
 
 ## Resumen Ejecutivo
 
 Se analizaron **2,004 asesores de negocios** usando registros operacionales
-semanales del período 2016-2019. El modelo clasifica a cada asesor en uno de
-cuatro cuartiles de riesgo de deterioro de cartera con un **Macro F1 de 0.614**,
-mejorando en 4.5 puntos porcentuales sobre el modelo de referencia.
+del período 2016-2019. El modelo clasifica a cada asesor en uno de tres
+niveles de riesgo de deterioro de cartera con un **Macro F1 de 0.717**.
 
-Los asesores en los extremos — bajo riesgo (Q1) y alto riesgo (Q4) — se
-identifican con precisión superior al 75%, que es donde la intervención
-temprana tiene mayor valor de negocio.
+Los asesores de riesgo ALTO se identifican correctamente en el **82% de los
+casos** — suficiente para priorizar supervisión sin revisar el 100% de la cartera.
 
 ---
 
 ## El Problema de Negocio
 
-La calidad de la cartera en microfinanzas está determinada en gran medida por
-el comportamiento operacional del asesor: cuántos grupos gestiona, qué tasas
-maneja, cuántos clientes nuevos incorpora. Un asesor con señales de deterioro
-puede intervenir antes de que la mora se materialice — si se detecta a tiempo.
+La mora en microfinanzas no aparece de golpe — se acumula semana a semana
+en grupos que no renuevan su crédito. Un asesor con grupos estancados puede
+tener cartera deteriorada **meses antes** de que el sistema lo registre
+formalmente.
 
-El modelo responde la pregunta: **dado el perfil operacional actual de un asesor,
-¿cuál es su cuartil de riesgo de deterioro de cartera?**
+El modelo responde la pregunta: **¿qué tan activo está el asesor renovando
+su cartera hoy?** — y usa esa señal para predecir su nivel de riesgo.
 
 ---
 
-## Metodología
+## Hallazgo Metodológico Central
 
-### Construcción del target
+La variable más importante del modelo no existía en el sistema original.
+Se construyó durante el análisis:
 
-Se definió la **Tasa de Deterioro Neto de Cartera (TDNC)** por asesor:
+### TASA_DESEMBOLSO
 
-> TDNC = Atraso promedio / Cartera promedio
+```
+TASA_DESEMBOLSO = filas con desembolso activo / total filas del asesor
+```
 
-Los asesores se clasificaron en cuatro cuartiles:
+**Interpretación:** El crédito grupal estándar dura 12 semanas. Un asesor
+con cartera sana tiene grupos que terminan su ciclo puntualmente y renuevan
+de inmediato. Un asesor con mora acumulada tiene grupos que no califican
+para renovación — y por eso desembolsa mucho menos frecuentemente.
 
-| Cuartil | TDNC promedio | Interpretación |
-|---------|--------------|----------------|
-| Q1_BAJO | 0.006 | Cartera prácticamente sin atraso |
-| Q2_MEDIO_BAJO | 0.057 | Atraso menor al 10% de la cartera |
-| Q3_MEDIO_ALTO | 0.141 | Atraso entre 10% y 20% de la cartera |
-| Q4_ALTO | 0.435 | Atraso superior al 20% de la cartera |
+| Nivel de riesgo | TASA_DESEMBOLSO | Cada cuántas semanas renueva |
+|----------------|----------------|------------------------------|
+| BAJO | 15.9% | ~1 de cada 6 semanas |
+| MEDIO | 6.6% | ~1 de cada 15 semanas |
+| ALTO | 3.6% | ~1 de cada 28 semanas |
 
-### Variables utilizadas
-
-El modelo usa **22 variables puramente operacionales** — sin incluir el atraso
-ni la provisión, que son consecuencia del deterioro y no causas.
-
-Las cuatro variables de mayor impacto (SHAP):
-
-| Variable | Importancia SHAP | Unidad |
-|----------|-----------------|--------|
-| CLIENTES_PRESTAMO | 0.976 | Clientes con préstamo activo |
-| PRESTAMO | 0.329 | Monto promedio de préstamo (pesos) |
-| TASA_PROM | 0.317 | Tasa promedio de la cartera |
-| CLIENTES_NUEVOS | 0.257 | Clientes nuevos por período |
+Un asesor BAJO renueva su cartera cada 6 semanas aproximadamente — es decir,
+está dentro del ciclo normal de 12 semanas con varios grupos en distintas etapas.
+Un asesor ALTO tarda 28 semanas en promedio — sus grupos están bloqueados por mora.
 
 ---
 
 ## Resultados del Modelo
 
-### Desempeño por cuartil
+### Desempeño por nivel de riesgo
 
-| Cuartil | Precisión | Recall | F1 | Interpretación |
-|---------|-----------|--------|----|----------------|
-| Q1_BAJO | 0.76 | 0.70 | 0.73 | Bien identificado |
-| Q2_MEDIO_BAJO | 0.47 | 0.54 | 0.50 | Frontera difusa con Q3 |
-| Q3_MEDIO_ALTO | 0.48 | 0.46 | 0.47 | Frontera difusa con Q2 |
-| Q4_ALTO | 0.77 | 0.75 | 0.76 | Bien identificado |
+| Nivel | Precisión | Recall | F1 | Interpretación |
+|-------|-----------|--------|----|----------------|
+| BAJO | 0.74 | 0.75 | 0.74 | Bien identificado |
+| MEDIO | 0.63 | 0.59 | 0.61 | Frontera difusa con BAJO y ALTO |
+| ALTO | 0.78 | 0.82 | 0.80 | Bien identificado |
 
-**Interpretación:** Los cuartiles extremos son identificables con alta
-confianza. La frontera entre Q2 y Q3 es genuinamente difusa — los asesores
-en estos cuartiles intermedios requieren supervisión adicional más allá del
-modelo para una clasificación definitiva.
+**Interpretación práctica:** El modelo detecta correctamente 82 de cada
+100 asesores de alto riesgo real. De los que clasifica como ALTO, 78 de
+cada 100 efectivamente lo son. Para un instrumento de priorización
+operacional, esto es suficientemente confiable.
 
-### Patrón de errores
+### Comparación de modelos
 
-Las confusiones del modelo ocurren casi exclusivamente entre clases adyacentes:
-Q3 se confunde con Q2 en el 37% de los casos de Q3. Ningún asesor Q1_BAJO
-se clasifica como Q4_ALTO excepto en 3 casos de 100 — el modelo no comete
-errores graves.
+| Modelo | Macro F1 | AUC OvR | Kappa |
+|--------|----------|---------|-------|
+| Regresión Logística (baseline) | 0.711 | 0.855 | 0.566 |
+| **LightGBM (modelo final)** | **0.717** | **0.881** | **0.577** |
+| XGBoost | 0.711 | 0.883 | 0.570 |
+
+La ventaja de LightGBM sobre el baseline es pequeña en macro F1 (+0.6pp),
+pero significativa en AUC OvR (0.881 vs 0.855) — importante cuando se usa
+el score de probabilidad para priorizar, no solo la clase predicha.
+
+---
+
+## Variables Más Importantes
+
+| Variable | Importancia SHAP | Interpretación de negocio |
+|----------|-----------------|--------------------------|
+| TASA_DESEMBOLSO | 0.935 | Actividad de renovación de cartera |
+| TASA_PROM | 0.223 | Tasas altas se asocian con clientes de mayor riesgo |
+| N_SEMANAS_OBS | 0.183 | Antigüedad del asesor en el período observado |
+| INCREMENTO_CARTERA | 0.136 | Crecimiento o contracción semanal de cartera |
+| CLIENTES | 0.106 | Número de clientes activos |
 
 ---
 
 ## Reglas de Decisión Operacionales
 
-Basadas en las 4 variables más importantes, expresadas en unidades reales
-de negocio:
+Basadas en las 4 variables más interpretables por un coordinador de zona:
 
-### Perfil Q1_BAJO — Asesor de bajo riesgo
+### Perfil BAJO — Asesor de bajo riesgo
 
-> CLIENTES_PRESTAMO > 1.9 **Y** TASA_PROM < 220 **Y** CLIENTES_NUEVOS > 0.3 **Y** PRESTAMO > $11,400
+> TASA_DESEMBOLSO > 0.12 **Y** TASA_PROM < 220 **Y**
+> MONTO_DESEMBOLSO_EVENTO > $108,000 **Y** CLIENTES_NUEVOS_EVENTO > 3.0
 
-**Interpretación:** Asesores con cartera activa y creciente, tasas moderadas
-y captación continua de nuevos clientes. Son el perfil de referencia de la institución.
+**Significado:** El asesor renueva frecuentemente, sus grupos tienen tasas
+moderadas y montos saludables, y está incorporando clientes nuevos activamente.
 
-### Perfil Q4_ALTO — Asesor de alto riesgo
+### Perfil ALTO — Asesor de alto riesgo
 
-> CLIENTES_PRESTAMO < 0.5 **Y** TASA_PROM > 237 **Y** CLIENTES_NUEVOS < 0.1 **Y** PRESTAMO < $2,900
+> TASA_DESEMBOLSO < 0.05 **Y** TASA_PROM > 236 **Y**
+> MONTO_DESEMBOLSO_EVENTO < $107,000 **Y** CLIENTES_NUEVOS_EVENTO < 2.5
 
-**Interpretación:** Asesores con muy pocos clientes activos, cartera de bajo
-monto y sin captación de nuevos clientes. Son el perfil de mayor urgencia para
-intervención.
+**Significado:** El asesor casi no renueva cartera (grupos bloqueados por mora),
+opera con tasas altas y montos bajos, y tiene poca captación de clientes nuevos.
 
 ### Tabla de perfiles completa
 
-| Perfil | CLIENTES_PRESTAMO | TASA_PROM | CLIENTES_NUEVOS | PRESTAMO promedio | Riesgo |
-|--------|-----------------|-----------|-----------------|------------------|--------|
-| Consolidado activo | > 1.9 clientes | 179 – 256 | > 0.3/sem | > $11,400 | Q1_BAJO |
-| Estable moderado | 0.6 – 0.8 clientes | 178 – 229 | 0.1 – 0.2/sem | $6,100 – $10,300 | Q2_MEDIO_BAJO |
-| En deterioro incipiente | 0.5 – 0.7 clientes | 189 – 235 | 0.1 – 0.2/sem | $4,700 – $8,600 | Q3_MEDIO_ALTO |
-| En crisis | < 0.5 clientes | > 237 | < 0.1/sem | < $4,800 | Q4_ALTO |
+| Perfil | TASA_DESEMBOLSO | TASA_PROM | MONTO_EVENTO | CLIENTES_NUEVOS | Riesgo |
+|--------|----------------|-----------|--------------|-----------------|--------|
+| Consolidado activo | > 12% | < 220 | > $108K | > 3.0 | BAJO |
+| Moderado estable | 5% – 12% | 190 – 235 | $95K – $120K | 2.0 – 3.5 | MEDIO |
+| Cartera estancada | < 5% | > 236 | < $107K | < 2.5 | ALTO |
 
 ---
 
 ## Análisis de Equidad Algorítmica
 
-Se verificó que el modelo no discrimina por características sociodemográficas:
+| Variable | Grupo mejor F1 | Grupo menor F1 | Diferencia | Umbral | Estado |
+|----------|---------------|----------------|------------|--------|--------|
+| Género | Mujeres (0.762) | Hombres (0.681) | 8.1pp | 10pp | Monitorear |
+| Edad | 26-30 años (0.737) | 36-45 años (0.642) | 9.5pp | 10pp | Monitorear |
 
-| Variable | Grupo con mejor F1 | Grupo con menor F1 | Diferencia | Resultado |
-|----------|-------------------|-------------------|------------|-----------|
-| Género | Mujeres (0.618) | Hombres (0.595) | 2.3pp | Sin disparidad |
-| Edad | ≤ 25 años (0.636) | 31-35 años (0.568) | 6.8pp | Sin disparidad |
-
-**Umbral institucional recomendado:** diferencias mayores a 10pp requieren
-revisión legal antes de usar el modelo en decisiones de personal.
+Ambos gaps están por debajo del umbral de alerta de 10pp, pero su proximidad
+requiere monitoreo activo en cada actualización del modelo. Antes de usar
+el modelo en decisiones de personal, se recomienda revisión legal.
 
 ---
 
 ## Aplicaciones Recomendadas
 
 ### 1. Priorización de supervisión
-Concentrar visitas de coordinadores en asesores clasificados como Q4_ALTO.
-El modelo identifica correctamente este grupo en el 75% de los casos —
-reduciendo el universo de revisión del 100% al 25% con alta precisión.
+Enfocar visitas de coordinadores en asesores clasificados como ALTO.
+El modelo reduce el universo de revisión al 33% de la cartera con 82%
+de precisión en la detección.
 
-### 2. Onboarding de asesores nuevos
-Con 8 semanas de operación es posible asignar una categoría de riesgo
-preliminar y definir la intensidad de acompañamiento inicial.
+### 2. Alerta temprana por TASA_DESEMBOLSO
+Un asesor que cae de TASA_DESEMBOLSO > 0.10 a < 0.05 en dos cortes
+consecutivos es una señal de alerta temprana — antes de que la mora
+aparezca en los reportes de cartera.
 
-### 3. Señal de alerta temprana
-Asesores que migran de Q1 a Q2 en períodos consecutivos representan una
-señal de deterioro incipiente — intervención en esta etapa tiene mayor
-efectividad que cuando ya están en Q4.
+### 3. Segmentación para campañas comerciales
+Asesores BAJO son el universo prioritario para campañas de ampliación
+de crédito. Asesores ALTO deben recibir intervención de cobranza antes
+de cualquier oferta comercial.
 
 ---
 
@@ -162,9 +170,9 @@ efectividad que cuando ya están en Q4.
 - Instituciones distintas a la de origen sin validación
 
 **Confiabilidad por zona de predicción:**
-- Alta: asesores clasificados Q1 o Q4 con probabilidad > 70%
-- Media: asesores en Q2 o Q3 — complementar con criterio del coordinador
-- Baja: cualquier predicción con probabilidad máxima < 55%
+- Alta confiabilidad: BAJO o ALTO con probabilidad > 70%
+- Confiabilidad media: MEDIO — complementar con criterio del coordinador
+- Confiabilidad baja: cualquier predicción con probabilidad máxima < 55%
 
 ---
 
@@ -173,14 +181,13 @@ efectividad que cuando ya están en Q4.
 | Componente | Tecnología |
 |-----------|-----------|
 | Lenguaje | Python 3.11 |
-| Modelo | LightGBM 4.6 con optimización Optuna |
+| Modelo | LightGBM 4.6 + Optuna 4.9 |
 | Interpretabilidad | SHAP (TreeExplainer) |
-| Tracking | MLflow 3.13 (backend SQLite) |
+| Tracking | MLflow 3.13 (SQLite) |
 | Dashboard | Streamlit 1.58 |
 | Almacenamiento | DuckDB 1.5 |
-| Gestión de entorno | uv + pyproject.toml |
+| Entorno | uv + pyproject.toml |
 
 ---
 
-*Reporte generado automáticamente desde los artefactos del proyecto.
-Para reproducir el análisis completo, consultar el repositorio GitHub.*
+*Para reproducir el análisis completo, consultar el repositorio GitHub.*
