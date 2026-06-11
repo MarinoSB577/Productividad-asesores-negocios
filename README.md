@@ -20,7 +20,7 @@ Este proyecto construye un sistema de clasificación que segmenta a los asesores
 
 ## El hallazgo central
 
-La variable más importante del modelo no existía en los datos originales. Se construyó durante el análisis:
+La variable más importante del modelo se construyó durante el análisis — no existía previamente:
 
 > **`TASA_DESEMBOLSO` = semanas con desembolso activo / total semanas observadas**
 
@@ -43,6 +43,7 @@ La variable objetivo es la **Tasa de Deterioro Neto de Cartera (TDNC)** por ases
 > **TDNC = promedio(ATRASO) / promedio(CARTERA_HOY)**
 
 Los asesores se segmentan en tres clases usando terciles de TDNC:
+
 - **BAJO:** TDNC promedio = 0.013 — cartera prácticamente sin atraso
 - **MEDIO:** TDNC promedio = 0.095 — atraso entre 5% y 15% de la cartera
 - **ALTO:** TDNC promedio = 0.372 — atraso superior al 20% de la cartera
@@ -51,12 +52,12 @@ Los asesores se segmentan en tres clases usando terciles de TDNC:
 
 ## Por qué este proyecto es metodológicamente sólido
 
-### Auditoría antes de modelar
+### Auditoría metodológica antes de modelar
 
 Se realizó una auditoría metodológica sistemática antes de construir cualquier modelo. Se identificaron y corrigieron cinco problemas críticos:
 
-| Problema | Modelo original | Este proyecto |
-|----------|----------------|---------------|
+| Problema | Detectado | Corrección aplicada |
+|----------|-----------|---------------------|
 | Leakage temporal | Split aleatorio por fila | Split temporal + split por asesor |
 | Leakage de construcción | ATRASO y PROVISION como features | Excluidas — son componentes de la fórmula del target |
 | Colapso de clases | Accuracy en 8 clases desbalanceadas | Macro F1 con `is_unbalance=True` |
@@ -67,7 +68,7 @@ La señal de detección del leakage fue un baseline de Logistic Regression con F
 
 ### Variables construidas desde cero
 
-Las variables originales de desembolso (`CLIENTES_PRESTAMO`, `PRESTAMO`, etc.) estaban promediadas sobre todas las semanas, incluyendo las semanas sin evento. Eso mezcla dos señales distintas: el tamaño del grupo y la frecuencia de renovación. Se reemplazaron por cuatro variables calculadas correctamente:
+Las variables de desembolso estaban promediadas sobre todas las semanas, incluyendo las semanas sin evento. Eso mezcla dos señales distintas: el tamaño del grupo y la frecuencia de renovación. Se reemplazaron por cuatro variables calculadas correctamente:
 
 | Variable construida | Cálculo | Interpretación |
 |--------------------|---------|----------------|
@@ -112,13 +113,14 @@ productividad-asesores-negocios/
 │   └── pages/
 │       ├── 1_Comparacion_Modelos.py     # Comparativa de los 3 modelos
 │       ├── 2_SHAP_Explorer.py           # Visualizaciones SHAP interactivas
-│       └── 3_Perfil_Asesor.py           # Predicción en tiempo real
+│       ├── 3_Perfil_Asesor.py           # Predicción en tiempo real
+│       └── 4_Evaluacion_Cartera.py      # Clasificación masiva con semáforo
 ├── data/
 │   ├── processed/                       # Modelos entrenados (.joblib)
 │   └── sample/                          # Datos sintéticos anonimizados
 ├── reports/
 │   ├── figures/                         # Gráficas generadas
-│   └── reporte_ejecutivo.md             # Reporte ejecutivo en español
+│   └── reporte_ejecutivo.docx           # Reporte ejecutivo en español
 ├── METHODOLOGY.md                       # Registro de decisiones de diseño
 └── pyproject.toml                       # Dependencias (uv)
 ```
