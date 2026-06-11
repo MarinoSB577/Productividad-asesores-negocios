@@ -53,7 +53,7 @@ Los asesores se segmentan en tres clases usando terciles de TDNC:
 
 ### Auditoría antes de modelar
 
-La tesis original de 2020 fue auditada sistemáticamente antes de escribir una sola línea de código. Se identificaron y corrigieron cinco problemas críticos:
+Se realizó una auditoría metodológica sistemática antes de construir cualquier modelo. Se identificaron y corrigieron cinco problemas críticos:
 
 | Problema | Modelo original | Este proyecto |
 |----------|----------------|---------------|
